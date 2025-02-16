@@ -1,0 +1,32 @@
+#!/bin/bash
+#SBATCH --partition VC5
+#SBATCH --gres gpu:4
+#SBATCH --ntasks 1
+#SBATCH --ntasks-per-node 1
+#SBATCH --quotatype spot
+#SBATCH --job-name eval_wwy
+#SBATCH --output logs_eval/InternVL2-8B-PRM/evaluation.log
+#SBATCH --error logs_eval/InternVL2-8B-PRM/evaluation.log
+# args: -p
+# args: VC5
+# args: --gres=gpu:4
+# args: --ntasks=1
+# args: --ntasks-per-node=1
+# args: --quotatype=spot
+# args: --job-name=eval_wwy
+# args: -e
+# args: logs_eval/InternVL2-8B-PRM/evaluation.log
+# args: env
+# args: PATH=/usr/local/cuda-12.2/bin:/usr/local/cuda-12.2/bin:/mnt/petrelfs/chenlianjie.p/spack/bin:/mnt/petrelfs/chenlianjie.p/miniconda3/envs/myenv/bin:/mnt/petrelfs/chenlianjie.p/miniconda3/condabin:/mnt/petrelfs/chenlianjie.p/.pyenv/shims:/mnt/petrelfs/chenlianjie.p/.pyenv/bin:/mnt/petrelfs/chenlianjie.p/miniconda3/bin:/mnt/petrelfs/chenlianjie.p/miniconda3/condabin:/mnt/hwfile/chenlianjie.p/.vscode-server/cli/servers/Stable-cd4ee3b1c348a13bafd8f9ad8060705f6d4b9cba/server/bin/remote-cli:/mnt/petrelfs/chenlianjie.p/.pyenv/bin:/mnt/petrelfs/chenlianjie.p/.pyenv/bin:/mnt/petrelfs/chenlianjie.p/.pyenv/bin:/mnt/petrelfs/chenlianjie.p/.pyenv/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/mnt/petrelfs/chenlianjie.p/.local/bin:/mnt/petrelfs/chenlianjie.p/bin:/mnt/petrelfs/chenlianjie.p/.local/bin:/mnt/petrelfs/chenlianjie.p/bin
+# args: LD_LIBRARY_PATH=/usr/local/cuda-12.2/lib64:/usr/local/cuda-12.2/lib64:
+# args: bash
+# args: -c
+# args: if ! python -c 'import flash_attn' &> /dev/null; then               echo 'flash-attn 未安装，正在安装...';               pip install flash-attn;           else               echo 'flash-attn 已安装';           fi;           pip install transformers_stream_generator;           pip install av;           pip install open_clip_torch;           export http_proxy=http://chenlianjie.p:N9CiXqoEygZkKXe6x2nchSAzxQDKmtzNDTP2iQ4IWepVUo0Z7q7PJHRVseOw@10.1.20.51:23128/;           export https_proxy=http://chenlianjie.p:N9CiXqoEygZkKXe6x2nchSAzxQDKmtzNDTP2iQ4IWepVUo0Z7q7PJHRVseOw@10.1.20.51:23128/;           export PATH=/usr/local/cuda-12.2/bin:$PATH;           export LD_LIBRARY_PATH=/usr/local/cuda-12.2/lib64:$LD_LIBRARY_PATH;           export NCCL_IB_TIMEOUT=22;           export NCCL_NET_GDR_LEVEL=2;           python -u run1.py --data VL-RewardBench --model InternVL2-8B-PRM --verbose
+argv=()
+while read -r line; do
+    if [[ $line == "# args: "* ]]; then
+        argv[${#argv[*]}]="${line:8}"
+    fi
+done < $0
+
+srun "${argv[@]}"

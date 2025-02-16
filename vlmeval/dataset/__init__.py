@@ -41,6 +41,9 @@ from .utils import *
 from .video_dataset_config import *
 from ..smp import *
 
+from .processbench import PROCESSBENCH
+from .rewardbench import RewardBench
+from .vl_prmbenchmark import VL_PRMBenchmark
 
 class ConcatDataset(ImageBaseDataset):
     # This dataset takes multiple dataset names as input and aggregate them into a single dataset.
@@ -134,7 +137,7 @@ IMAGE_DATASET = [
     MMLongBench, VCRDataset, MMDUDataset, DUDE, SlideVQA, MUIRDataset, CCOCRDataset,
     GMAIMMBenchDataset, MMERealWorld, HRBenchDataset, CRPE, MathVerse, NaturalBenchDataset,
     MIABench, OlympiadBench, WildVision, MMMath, QSpatial, Dynamath, MMGenBench, VizWiz, MMNIAH,
-    CMMMU, VLRewardBench, WeMath, LogicVista
+    CMMMU, VLRewardBench, WeMath, LogicVista, VL_PRMBenchmark,
 ]
 
 VIDEO_DATASET = [
@@ -145,7 +148,7 @@ VIDEO_DATASET = [
 ]
 
 TEXT_DATASET = [
-    TextMCQDataset
+    TextMCQDataset, PROCESSBENCH, RewardBench
 ]
 
 CUSTOM_DATASET = [

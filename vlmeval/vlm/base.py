@@ -1,5 +1,6 @@
-from ..smp import *
-from ..dataset import img_root_map, DATASET_TYPE
+# from ..smp import *
+from vlmeval.smp import *
+from vlmeval.dataset import img_root_map, DATASET_TYPE
 from abc import abstractmethod
 
 

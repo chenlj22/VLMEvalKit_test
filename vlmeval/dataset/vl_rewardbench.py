@@ -53,6 +53,15 @@ def get_score(line, parsed_response, random_number):
     else:
         return 0.0
 
+def get_score_PRM(line):
+    response = toliststr(line['response'])
+    random_number = sum(len(res) for res in response) % 2
+    gt_ans = line['human_ranking'].index(0 if random_number == 0 else 1) + 1
+    pred=line['prediction']
+    if pred == gt_ans:
+        return 1.0
+    else:
+        return 0.0
 
 def VLRewardBench_eval_answer(model, line):
     response = toliststr(line['response'])
@@ -97,6 +106,8 @@ class VLRewardBench(ImageBaseDataset):
             query=question, answer_0=response[0], answer_1=response[1]
         )
         msgs = msgs + [dict(type='text', value=query_prompt)]
+        msgs = msgs + [dict(type='question', value=question)]
+        msgs = msgs + [dict(type='response', value=response)]
         return msgs
 
     # It returns a DataFrame
@@ -139,6 +150,66 @@ class VLRewardBench(ImageBaseDataset):
                     tups,
                     nproc=nproc,
                     chunksize=nproc,
+                    keys=indices,
+                    save=tmp_file,
+                )
+                ans = load(tmp_file)
+                for k, v in zip(indices, new_results):
+                    ans[k] = v
+
+            data['score'] = [ans[idx] for idx in data['index']]
+            # data.pop('image')
+            dump(data, storage)
+
+        data = load(storage)
+        lt = len(data)
+
+        category_scores = defaultdict(lambda: 0)
+        category_cnt = defaultdict(lambda: 0)
+        scores = defaultdict(lambda: 0)
+        for i in range(lt):
+            item = data.iloc[i]
+            category_scores[item['category']] += item['score']
+            category_cnt[item['category']] += 1
+        # calculate the average score for each category
+        for k, v in category_scores.items():
+            scores[k] = v / category_cnt[k]
+        # calculate category macro accuracy (average across categories)
+        scores['Macro Accuracy'] = sum(scores.values()) / len(scores)
+        # calculate the total average score
+        scores['Overall Consistency'] = sum(category_scores.values()) / lt
+
+        scores = {k: [v] for k, v in scores.items()}
+        scores = pd.DataFrame(scores)
+        dump(scores, score_file)
+        return scores
+    
+    @classmethod
+    def evaluate_PRM(self, eval_file):
+        suffix = eval_file.split('.')[-1]
+        storage = eval_file.replace(f'.{suffix}', '_evaluate.xlsx')
+        score_file = eval_file.replace(f'.{suffix}', '_score.csv')
+        tmp_file = eval_file.replace(f'.{suffix}', '_evaluate.pkl')
+
+        if not osp.exists(storage):
+            raw_data = VLRewardBench('VL-RewardBench').data
+            data = load(eval_file)
+            data['prediction'] = [float(x) for x in data['prediction']]
+            data['human_ranking'] = [literal_eval(x) for x in raw_data['answer']]
+
+            lt = len(data)
+            lines = [data.iloc[i] for i in range(lt)]
+            tups = [(line) for line in lines]
+            indices = [line['index'] for line in lines]
+
+            ans = load(tmp_file) if osp.exists(tmp_file) else {}
+            tups = [x for x, i in zip(tups, indices) if i not in ans]
+            indices = [i for i in indices if i not in ans]
+
+            if len(indices):
+                new_results = track_progress_rich(
+                    get_score_PRM,
+                    tups,
                     keys=indices,
                     save=tmp_file,
                 )

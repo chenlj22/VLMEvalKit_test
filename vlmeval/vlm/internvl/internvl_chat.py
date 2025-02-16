@@ -21,9 +21,12 @@ from .utils import (build_multi_choice_prompt,
                     reorganize_prompt,
                     split_model, load_image)
 from .utils import mpo_prompt_with_final_answer, mpo_prompt_without_final_answer
-from ..base import BaseModel
-from ...dataset import DATASET_TYPE, DATASET_MODALITY
-from ...smp import *
+# from ..base import BaseModel
+# from ...dataset import DATASET_TYPE, DATASET_MODALITY
+# from ...smp import *
+from vlmeval.vlm.base import BaseModel
+from vlmeval.dataset import DATASET_TYPE, DATASET_MODALITY
+from vlmeval.smp import *
 
 
 class InternVLChat(BaseModel):
@@ -32,9 +35,14 @@ class InternVLChat(BaseModel):
 
     def __init__(self,
                  model_path='OpenGVLab/InternVL-Chat-V1-5',
+                 reward_model_path=None,
+                 reward_model_gather_func=None,
+                 reward_model_max_steps=12,
+                 best_of_n=1,
                  load_in_8bit=False,
                  use_mpo_prompt=False,
                  version='V1.0',
+                 temperature=None,
                  **kwargs):
 
         assert model_path is not None
@@ -42,6 +50,7 @@ class InternVLChat(BaseModel):
 
         self.use_mpo_prompt = use_mpo_prompt
         self.use_cot = (os.getenv('USE_COT') == '1')
+        print(f'{self.use_cot=}')
 
         self.model_path = model_path
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=False)
@@ -78,6 +87,31 @@ class InternVLChat(BaseModel):
                 low_cpu_mem_usage=True).eval().cuda()
             self.device = 'cuda'
 
+        self.best_of_n = best_of_n
+        self.temperature = temperature
+        self.reward_model_path = reward_model_path
+        self.reward_model_max_steps = reward_model_max_steps
+
+        if best_of_n > 1:
+            assert reward_model_path is not None
+
+        if reward_model_path is not None:
+            assert best_of_n > 1
+
+            import sys
+            sys.path.append('/mnt/petrelfs/wangweiyun/workspace_wwy/open_source/InternVL/internvl_chat')
+            sys.path.append('/mnt/petrelfs/chenlianjie.p/VLMEvalKit/vlmeval/vlm')
+            from internvl.model.internvl_chat.modeling_internvl_chat import InternVLRewardModel
+
+            self.reward_tokenizer = AutoTokenizer.from_pretrained(reward_model_path, trust_remote_code=True, use_fast=False)
+            self.reward_model = InternVLRewardModel.from_pretrained(
+                reward_model_path,
+                torch_dtype=torch.bfloat16,
+                load_in_8bit=load_in_8bit,
+                trust_remote_code=True,
+                low_cpu_mem_usage=True).eval().to(self.device)
+            self.reward_model_gather_func = reward_model_gather_func
+
         self.image_size = self.model.config.vision_config.image_size
         self.version = version
         kwargs_default = dict(do_sample=False, max_new_tokens=4096, top_p=None)
@@ -85,6 +119,8 @@ class InternVLChat(BaseModel):
         self.kwargs = kwargs_default
 
         warnings.warn(f'Following kwargs received: {self.kwargs}, will use as generation config. ')
+        warnings.warn(f'{self.best_of_n=}')
+        warnings.warn(f'{self.reward_model_max_steps=}')
 
     def use_custom_prompt(self, dataset):
         assert dataset is not None
@@ -124,8 +160,7 @@ class InternVLChat(BaseModel):
                             'DUDE', 'SLIDEVQA', 'GQA', 'MMLongBench_DOC'], dataset):
                 prompt = question + '\nAnswer the question using a single word or phrase.'
             elif listinstr(['MathVista', 'MathVision', 'VCR', 'MTVQA', 'MMVet', 'MathVerse',
-                            'MMDU', 'CRPE', 'MIA-Bench', 'MM-Math', 'DynaMath', 'QSpatial',
-                            'WeMath', 'LogicVista'], dataset):
+                            'MMDU', 'CRPE', 'MIA-Bench', 'MM-Math', 'DynaMath', 'QSpatial'], dataset):
                 prompt = question
                 if os.getenv('USE_COT') == '1':
                     prompt = build_qa_cot_prompt(line, prompt)
@@ -206,6 +241,7 @@ class InternVLChat(BaseModel):
                 verbose=True)
         return response
 
+    @torch.no_grad()
     def generate_v2(self, message, dataset=None):
         use_mpo_prompt = self.use_mpo_prompt and (self.use_cot or dataset in ['MMStar', 'HallusionBench', 'OCRBench'])
 
@@ -236,15 +272,37 @@ class InternVLChat(BaseModel):
             pixel_values = None
             num_patches_list = []
 
-        with torch.no_grad():
+        response_list = []
+        for idx in range(self.best_of_n):
+            kwargs_default = self.kwargs.copy()
+            # self.kwargs['do_sample'] = self.best_of_n > 1
+            self.kwargs['do_sample'] = idx > 0
+            self.kwargs['temperature'] = self.temperature if self.temperature is not None else 1.0
+            self.kwargs['top_p'] = 0.95
             response = self.model.chat(
                 self.tokenizer,
                 pixel_values=pixel_values,
                 num_patches_list=num_patches_list,
                 question=prompt,
                 generation_config=self.kwargs,
-                verbose=True
+                verbose=idx == 0,
             )
+            self.kwargs = kwargs_default
+            response_list.append(response)
+
+        if self.best_of_n > 1:
+            response_list = self.reward_model.select_best_response(
+                tokenizer=self.reward_tokenizer,
+                question=prompt,
+                response_list=response_list,
+                pixel_values=pixel_values,
+                num_patches_list=num_patches_list,
+                max_steps=self.reward_model_max_steps,
+                early_stop=True,
+                version='soft_v2',
+                gather_func=self.reward_model_gather_func,
+            )
+        response = response_list[0]
 
         if use_mpo_prompt:
             response = mpo_post_processing(response, dataset)
@@ -331,19 +389,39 @@ class InternVLChat(BaseModel):
             pixel_values = None
             num_patches_list = []
 
-        response, history = self.model.chat(
-            self.tokenizer,
-            pixel_values=pixel_values,
-            num_patches_list=num_patches_list,
-            question=question,
-            generation_config=self.kwargs,
-            history=history,
-            return_history=True
-        )
+        response_list = []
+        for _ in range(self.best_of_n):
+            kwargs_default = self.kwargs.copy()
+            self.kwargs['do_sample'] = self.best_of_n > 1
+            self.kwargs['temperature'] = 1.0
+            self.kwargs['top_p'] = 0.95
+            response, history = self.model.chat(
+                self.tokenizer,
+                pixel_values=pixel_values,
+                num_patches_list=num_patches_list,
+                question=question,
+                generation_config=self.kwargs,
+                history=history,
+                return_history=True
+            )
+            self.kwargs = kwargs_default
+            response = re.sub(self.reverse_pattern, self.reverse_replacement, response)
+            response_list.append(response)
 
-        response = re.sub(self.reverse_pattern, self.reverse_replacement, response)
+        if self.best_of_n > 1:
+            response_list = self.reward_model.select_best_response(
+                tokenizer=self.reward_tokenizer,
+                question=question,
+                response_list=response_list,
+                pixel_values=pixel_values,
+                num_patches_list=num_patches_list,
+                max_steps=self.reward_model_max_steps,
+                early_stop=True,
+                version='soft_v2',
+            )
 
-        return response
+        print(f'{len(response_list)}=')
+        return response_list[0]
 
     def chat_inner(self, message, dataset=None):
         self.set_max_num(dataset)

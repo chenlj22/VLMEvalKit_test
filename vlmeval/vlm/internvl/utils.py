@@ -12,9 +12,14 @@ from PIL import Image
 from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoTokenizer, AutoConfig, AutoModel, CLIPImageProcessor
 
-from ..base import BaseModel
-from ...dataset import DATASET_TYPE, DATASET_MODALITY
-from ...smp import *
+import sys
+sys.path.append('/mnt/petrelfs/chenlianjie.p/VLMEvalKit/vlmeval/vlm')
+# from ..base import BaseModel
+from base import BaseModel
+# from ...dataset import DATASET_TYPE, DATASET_MODALITY
+from vlmeval.dataset import DATASET_TYPE, DATASET_MODALITY
+# from ...smp import *
+from vlmeval.smp import *
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)

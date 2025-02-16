@@ -259,7 +259,7 @@ def main():
                     if prev_result_file is not None:
                         logger.warning(
                             f'--reuse is set, will reuse the prediction file {prev_result_file}.')
-                        if prev_result_file != result_file:
+                        if prev_resultfiltered_distributions_file != result_file:
                             shutil.copy(prev_result_file, result_file)
                     elif len(prev_pkl_file_list):
                         for fname in prev_pkl_file_list:
@@ -418,7 +418,26 @@ def main():
     if world_size > 1:
         dist.destroy_process_group()
 
+def init_dist():
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        pass
+    elif 'SLURM_PROCID' in os.environ:
+        rank = int(os.getenv('SLURM_PROCID', '0'))
+        world_size = int(os.getenv('SLURM_NTASKS', '1'))
+        local_rank = rank % torch.cuda.device_count()
+
+        os.environ['RANK'] = str(rank)
+        os.environ['LOCAL_RANK'] = str(local_rank)
+        os.environ['WORLD_SIZE'] = str(world_size)
+
+        if 'MASTER_ADDR' not in os.environ:
+            node_list = os.environ["SLURM_NODELIST"]
+            addr = subprocess.getoutput(f"scontrol show hostname {node_list} | head -n1")
+            os.environ['MASTER_ADDR'] = addr
+        if 'MASTER_PORT' not in os.environ:
+            os.environ['MASTER_PORT'] = '22110'
 
 if __name__ == '__main__':
+    init_dist()
     load_env()
     main()

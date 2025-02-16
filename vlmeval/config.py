@@ -1,6 +1,8 @@
 from vlmeval.vlm import *
 from vlmeval.api import *
 from functools import partial
+from vlmeval.vlm.internvl.model.internvl_chat.modeling_internvl_chat import InternVLRewardModel
+
 
 PandaGPT_ROOT = None
 MiniGPT4_ROOT = None
@@ -186,6 +188,13 @@ vita_series = {
 }
 
 internvl_series = {
+    'PRM':InternVLRewardModel.from_pretrained(
+                '/mnt/petrelfs/share_data/wangweiyun/share_internvl_preview/InternVL2_5-8B-PRM-v0',
+                torch_dtype=torch.bfloat16,
+                trust_remote_code=True,
+                low_cpu_mem_usage=True).eval().to('cuda'),
+
+
     'InternVL-Chat-V1-1': partial(InternVLChat, model_path='OpenGVLab/InternVL-Chat-V1-1', version='V1.1'),
     'InternVL-Chat-V1-2': partial(InternVLChat, model_path='OpenGVLab/InternVL-Chat-V1-2', version='V1.2'),
     'InternVL-Chat-V1-2-Plus': partial(
@@ -208,6 +217,8 @@ internvl_series = {
     'InternVL2-2B': partial(InternVLChat, model_path='OpenGVLab/InternVL2-2B', version='V2.0'),
     'InternVL2-4B': partial(InternVLChat, model_path='OpenGVLab/InternVL2-4B', version='V2.0'),
     'InternVL2-8B': partial(InternVLChat, model_path='OpenGVLab/InternVL2-8B', version='V2.0'),
+    'InternVL2-8B-PRM': partial(InternVLChat, model_path='OpenGVLab/InternVL2-8B', version='V2.0', best_of_n=9, temperature=None, reward_model_path='/mnt/petrelfs/share_data/wangweiyun/share_internvl_preview/InternVL2_5-8B-PRM-v0'),
+    'InternVL2_5-8B-PRM': partial(InternVLChat, model_path='OpenGVLab/InternVL2_5-8B', version='V2.0', best_of_n=9, temperature=None, reward_model_path='/mnt/petrelfs/share_data/wangweiyun/share_internvl_preview/InternVL2_5-8B-PRM-v0'),
     'InternVL2-26B': partial(InternVLChat, model_path='OpenGVLab/InternVL2-26B', version='V2.0'),
     'InternVL2-40B': partial(
         InternVLChat, model_path='OpenGVLab/InternVL2-40B', version='V2.0'
@@ -378,6 +389,9 @@ qwen2vl_series = {
     'Qwen2-VL-2B-Instruct-GPTQ-Int4': partial(Qwen2VLChat, model_path='Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4', min_pixels=1280*28*28, max_pixels=16384*28*28),
     'Qwen2-VL-2B-Instruct-GPTQ-Int8': partial(Qwen2VLChat, model_path='Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8', min_pixels=1280*28*28, max_pixels=16384*28*28),
     'XinYuan-VL-2B-Instruct': partial(Qwen2VLChat, model_path='Cylingo/Xinyuan-VL-2B', min_pixels=1280*28*28, max_pixels=16384*28*28),
+    'Qwen2.5-VL-3B': partial(Qwen2VLChat, model_path='Qwen/Qwen2.5-VL-3B-Instruct', min_pixels=1280*28*28, max_pixels=16384*28*28),
+    'Qwen2.5-VL-7B': partial(Qwen2VLChat, model_path='Qwen/Qwen2.5-VL-7B-Instruct', min_pixels=1280*28*28, max_pixels=16384*28*28),
+    'Qwen2.5-VL-72B': partial(Qwen2VLChat, model_path='Qwen/Qwen2.5-VL-72B-Instruct', min_pixels=1280*28*28, max_pixels=16384*28*28),
 }
 
 slime_series = {
