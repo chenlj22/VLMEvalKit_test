@@ -132,6 +132,17 @@ If you use VLMEvalKit in your research or wish to refer to published OpenSource 
   year={2024}
 }
 ```
+# VLMEvalKit
+
+This repository is a fork of the original VLMEvalKit repository. I have made several modifications to enhance its functionality and fix some issues. Here are the key changes I have made:
+
+## Modifications
+
+- **run.py**: 尝试对不同数据集及不同评估模式分别写 `run.py` 文件。
+- **vlmeval/inference.py**: 进行了适应性改动。
+- **vlmeval/vlm/internvl/model/internvl_chat/modeling_internvl_chat.py**: 添加了一些方法。
+- **添加了可评测的 dataset**: 在 `vlmeval/dataset/` 目录下，包括 `vl_prmbenchmark.py`。
+
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
 
@@ -145,3 +156,6 @@ If you use VLMEvalKit in your research or wish to refer to published OpenSource 
 [github-license-shield]: https://img.shields.io/github/license/open-compass/VLMEvalKit?color=white&labelColor=black&style=flat-square
 [github-stars-link]: https://github.com/open-compass/VLMEvalKit/stargazers
 [github-stars-shield]: https://img.shields.io/github/stars/open-compass/VLMEvalKit?color=ffcb47&labelColor=black&style=flat-square
+
+
+
